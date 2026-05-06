@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trade for Life Simulator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+    color: #1e293b;
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .container { max-width: 1280px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 32px; }
+  header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    background: linear-gradient(90deg, #0ea5e9, #8b5cf6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-bottom: 8px;
+  }
+  header p { color: #64748b; font-size: 14px; }
+  .grid {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.04);
+  }
+  .card h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .input-group { margin-bottom: 16px; }
+  .input-group label {
+    display: block;
+    font-size: 13px;
+    color: #475569;
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .input-wrapper .prefix, .input-wrapper .suffix {
+    position: absolute;
+    color: #94a3b8;
+    font-size: 14px;
+    pointer-events: none;
+    font-weight: 500;
+  }
+  .input-wrapper .prefix { left: 12px; }
+  .input-wrapper .suffix { right: 12px; }
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    color: #0f172a;
+    font-size: 15px;
+    font-weight: 500;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  input.with-prefix { padding-left: 40px; }
+  input.with-suffix { padding-right: 32px; }
+  input:focus {
+    outline: none;
+    border-color: #0ea5e9;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
+  }
+  button.simulate {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(90deg, #0ea5e9, #8b5cf6);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.2s;
+    margin-top: 8px;
+  }
+  button.simulate:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(14, 165, 233, 0.25);
+  }
+  button.simulate:active { transform: translateY(0); }
+  .result-headline {
+    text-align: center;
+    padding: 32px 24px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+  .result-headline.runout {
+    background: linear-gradient(135deg, #fef2f2, #fee2e2);
+    border: 1px solid #fecaca;
+  }
+  .result-headline.forever {
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    border: 1px solid #bbf7d0;
+  }
+  .result-headline .label {
+    font-size: 13px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  .result-headline .value {
+    font-size: 36px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .result-headline.runout .value { color: #dc2626; }
+  .result-headline.forever .value { color: #16a34a; }
+  .result-headline .sub { font-size: 14px; color: #475569; }
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .stat {
+    background: #f8fafc;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+  }
+  .stat .label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+  .stat .value { font-size: 18px; font-weight: 600; color: #0f172a; margin-top: 4px; }
+  .chart-wrapper { height: 320px; position: relative; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th, td {
+    padding: 10px 12px;
+    text-align: right;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  th {
+    color: #64748b;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: right;
+    position: sticky;
+    top: 0;
+    background: #f8fafc;
+  }
+  th:first-child, td:first-child { text-align: left; color: #0f172a; font-weight: 500; }
+  td.pos { color: #16a34a; }
+  td.neg { color: #dc2626; }
+  .table-wrapper { max-height: 360px; overflow-y: auto; border-radius: 8px; border: 1px solid #e2e8f0; }
+  .blind-spots {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    padding: 18px;
+    border-radius: 12px;
+    margin-top: 16px;
+  }
+  .blind-spots h3 { color: #b45309; font-size: 14px; margin-bottom: 10px; }
+  .blind-spots ul { padding-left: 20px; color: #78350f; font-size: 13px; line-height: 1.7; }
+  .blind-spots li { margin-bottom: 6px; }
+  .blind-spots b { color: #92400e; }
+  .placeholder {
+    text-align: center;
+    padding: 60px 24px;
+    color: #94a3b8;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Trade for Life Simulator</h1>
+    <p>用资本 + 月回酬 cover 生活费 — 看你的 capital 能撑多久</p>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT: INPUT -->
+    <div>
+      <div class="card">
+        <h2>📊 输入参数</h2>
+
+        <div class="input-group">
+          <label>起始资本 (Starting Capital)</label>
+          <div class="input-wrapper">
+            <span class="prefix">RM</span>
+            <input type="text" id="capital" class="with-prefix money" value="1,000,000" inputmode="numeric">
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label>月回酬率 (Monthly ROI)</label>
+          <div class="input-wrapper">
+            <input type="text" id="roi" class="with-suffix percent" value="2.00" inputmode="decimal">
+            <span class="suffix">%</span>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label>月生活费 (Monthly Expense)</label>
+          <div class="input-wrapper">
+            <span class="prefix">RM</span>
+            <input type="text" id="expense" class="with-prefix money" value="20,000" inputmode="numeric">
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label>年通膨率 (Annual Inflation)</label>
+          <div class="input-wrapper">
+            <input type="text" id="inflation" class="with-suffix percent" value="3.00" inputmode="decimal">
+            <span class="suffix">%</span>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label>最多模拟年数 (Max Simulation Years)</label>
+          <div class="input-wrapper">
+            <input type="number" id="maxYears" class="with-suffix" value="100" step="10" min="1">
+            <span class="suffix">年</span>
+          </div>
+        </div>
+
+        <button class="simulate" onclick="runSimulation()">▶ 开始模拟</button>
+      </div>
+
+      <div class="blind-spots">
+        <h3>⚠️ 你需要注意的盲点</h3>
+        <ul>
+          <li><b>2% 月回酬 = 年化 26.82%</b>，是非常激进的目标，连巴菲特长期年化也只有 ~20%。</li>
+          <li><b>Sequence of returns risk</b> — 如果头 2-3 年回酬差，capital 会被掏空得特别快。</li>
+          <li>这个 simulator 假设 ROI 是稳定的，但 trading 实际有 drawdown 月份（亏损月）。</li>
+          <li>没有计算税务、医疗大额支出、家庭突发开销。</li>
+          <li>Trading 收入不稳定 → 你需要一个 buffer fund (建议 12-24 个月生活费在 cash)。</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- RIGHT: RESULT -->
+    <div>
+      <div id="resultContainer" class="card">
+        <div class="placeholder">
+          <p>👈 输入参数后按"开始模拟"</p>
+        </div>
+      </div>
+
+      <div id="chartCard" class="card" style="display:none">
+        <h2>📈 资本走势</h2>
+        <div class="chart-wrapper">
+          <canvas id="chart"></canvas>
+        </div>
+      </div>
+
+      <div id="tableCard" class="card" style="display:none">
+        <h2>📋 年度明细</h2>
+        <div class="table-wrapper">
+          <table id="resultTable">
+            <thead>
+              <tr>
+                <th>年份</th>
+                <th>月生活费</th>
+                <th>年总收入</th>
+                <th>年总支出</th>
+                <th>年净额</th>
+                <th>年末资本</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let chartInstance = null;
+
+function fmtMoney(n) { return Math.round(n).toLocaleString('en-US'); }
+function fmtRM(num) {
+  if (num >= 1e9) return 'RM ' + (num/1e9).toFixed(2) + 'B';
+  if (num >= 1e6) return 'RM ' + (num/1e6).toFixed(2) + 'M';
+  if (num >= 1e3) return 'RM ' + (num/1e3).toFixed(1) + 'K';
+  return 'RM ' + Math.round(num).toLocaleString('en-US');
+}
+function fmtFull(num) { return 'RM ' + Math.round(num).toLocaleString('en-US'); }
+function parseNum(str) {
+  if (typeof str === 'number') return str;
+  return parseFloat(String(str).replace(/,/g, '')) || 0;
+}
+
+function attachMoneyFormatter(el) {
+  el.addEventListener('input', (e) => {
+    const caretFromEnd = el.value.length - el.selectionStart;
+    let raw = el.value.replace(/[^0-9]/g, '');
+    if (raw === '') { el.value = ''; return; }
+    const formatted = parseInt(raw, 10).toLocaleString('en-US');
+    el.value = formatted;
+    const newPos = Math.max(0, formatted.length - caretFromEnd);
+    el.setSelectionRange(newPos, newPos);
+  });
+  el.addEventListener('blur', () => { if (el.value === '') el.value = '0'; });
+}
+function attachPercentFormatter(el) {
+  el.addEventListener('input', (e) => {
+    let v = el.value.replace(/[^0-9.]/g, '');
+    const firstDot = v.indexOf('.');
+    if (firstDot !== -1) {
+      v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
+    }
+    el.value = v;
+  });
+  el.addEventListener('blur', () => {
+    const num = parseFloat(el.value);
+    if (isNaN(num)) { el.value = '0.00'; return; }
+    el.value = num.toFixed(2);
+  });
+}
+
+document.querySelectorAll('input.money').forEach(attachMoneyFormatter);
+document.querySelectorAll('input.percent').forEach(attachPercentFormatter);
+
+function runSimulation() {
+  const capital0 = parseNum(document.getElementById('capital').value);
+  const monthlyROI = parseNum(document.getElementById('roi').value) / 100;
+  const expense0 = parseNum(document.getElementById('expense').value);
+  const inflation = parseNum(document.getElementById('inflation').value) / 100;
+  const maxYears = parseInt(document.getElementById('maxYears').value) || 100;
+
+  let capital = capital0;
+  let monthlyExpense = expense0;
+  const maxMonths = maxYears * 12;
+
+  const years = [0];
+  const capitalHistory = [capital];
+  const yearlyData = [];
+  let runOutMonth = null;
+
+  for (let m = 1; m <= maxMonths; m++) {
+    if ((m - 1) % 12 === 0) {
+      yearlyData.push({
+        year: Math.floor((m - 1) / 12) + 1,
+        startCapital: capital,
+        monthlyExpense: monthlyExpense,
+        totalIncome: 0,
+        totalExpense: 0,
+      });
+    }
+    const yr = yearlyData[yearlyData.length - 1];
+    const profit = capital * monthlyROI;
+    yr.totalIncome += profit;
+    yr.totalExpense += monthlyExpense;
+    const net = profit - monthlyExpense;
+    capital += net;
+
+    if (capital <= 0) {
+      capital = 0;
+      runOutMonth = m;
+      yr.endCapital = 0;
+      yr.netFlow = yr.totalIncome - yr.totalExpense;
+      years.push(m / 12);
+      capitalHistory.push(0);
+      break;
+    }
+
+    if (m % 12 === 0) {
+      yr.endCapital = capital;
+      yr.netFlow = yr.totalIncome - yr.totalExpense;
+      years.push(m / 12);
+      capitalHistory.push(capital);
+      monthlyExpense = monthlyExpense * (1 + inflation);
+    }
+  }
+
+  if (runOutMonth === null) {
+    const lastYr = yearlyData[yearlyData.length - 1];
+    if (lastYr && lastYr.endCapital === undefined) {
+      lastYr.endCapital = capital;
+      lastYr.netFlow = lastYr.totalIncome - lastYr.totalExpense;
+    }
+  }
+
+  renderResult(capital0, runOutMonth, capital, maxYears, yearlyData);
+  renderChart(years, capitalHistory, runOutMonth);
+  renderTable(yearlyData);
+}
+
+function renderResult(capital0, runOutMonth, finalCapital, maxYears, yearlyData) {
+  const container = document.getElementById('resultContainer');
+  let html = '';
+
+  if (runOutMonth !== null) {
+    const yrs = Math.floor(runOutMonth / 12);
+    const mos = runOutMonth % 12;
+    html += `<div class="result-headline runout">
+      <div class="label">资本耗尽</div>
+      <div class="value">${yrs} 年 ${mos} 个月</div>
+      <div class="sub">第 ${yrs + (mos > 0 ? 1 : 0)} 年你的 capital 会归零 ❌</div>
+    </div>`;
+  } else {
+    html += `<div class="result-headline forever">
+      <div class="label">资本可持续</div>
+      <div class="value">Forever ♾️</div>
+      <div class="sub">${maxYears} 年后资本仍剩 ${fmtRM(finalCapital)} — 你成功了 ✅</div>
+    </div>`;
+  }
+
+  const peakCapital = Math.max(...yearlyData.map(y => y.endCapital ?? 0), capital0);
+  const totalIncome = yearlyData.reduce((s, y) => s + y.totalIncome, 0);
+  const totalExpense = yearlyData.reduce((s, y) => s + y.totalExpense, 0);
+
+  html += `<div class="stats-row">
+    <div class="stat"><div class="label">起始资本</div><div class="value">${fmtRM(capital0)}</div></div>
+    <div class="stat"><div class="label">最高资本</div><div class="value">${fmtRM(peakCapital)}</div></div>
+    <div class="stat"><div class="label">累计收入</div><div class="value">${fmtRM(totalIncome)}</div></div>
+    <div class="stat"><div class="label">累计支出</div><div class="value">${fmtRM(totalExpense)}</div></div>
+  </div>`;
+
+  container.innerHTML = html;
+  document.getElementById('chartCard').style.display = 'block';
+  document.getElementById('tableCard').style.display = 'block';
+}
+
+function renderChart(years, capitalHistory, runOutMonth) {
+  const ctx = document.getElementById('chart').getContext('2d');
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: years.map(y => 'Y' + y.toFixed(1)),
+      datasets: [{
+        label: '资本 (RM)',
+        data: capitalHistory,
+        borderColor: runOutMonth !== null ? '#dc2626' : '#16a34a',
+        backgroundColor: runOutMonth !== null ? 'rgba(220,38,38,0.08)' : 'rgba(22,163,74,0.08)',
+        borderWidth: 2.5,
+        tension: 0.3,
+        fill: true,
+        pointRadius: 0,
+        pointHoverRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#475569' } },
+        tooltip: { callbacks: { label: (ctx) => fmtFull(ctx.parsed.y) } }
+      },
+      scales: {
+        x: { ticks: { color: '#94a3b8', maxTicksLimit: 12 }, grid: { color: '#f1f5f9' } },
+        y: { ticks: { color: '#94a3b8', callback: (v) => fmtRM(v) }, grid: { color: '#f1f5f9' } }
+      }
+    }
+  });
+}
+
+function renderTable(yearlyData) {
+  const tbody = document.querySelector('#resultTable tbody');
+  tbody.innerHTML = yearlyData.map(y => {
+    const netClass = (y.netFlow ?? 0) >= 0 ? 'pos' : 'neg';
+    const endCap = y.endCapital ?? 0;
+    return `<tr>
+      <td>第 ${y.year} 年</td>
+      <td>${fmtFull(y.monthlyExpense)}</td>
+      <td class="pos">${fmtFull(y.totalIncome)}</td>
+      <td class="neg">${fmtFull(y.totalExpense)}</td>
+      <td class="${netClass}">${(y.netFlow ?? 0) >= 0 ? '+' : ''}${fmtFull(y.netFlow ?? 0)}</td>
+      <td>${fmtFull(endCap)}</td>
+    </tr>`;
+  }).join('');
+}
+
+window.addEventListener('DOMContentLoaded', runSimulation);
+</script>
+</body>
+</html>
