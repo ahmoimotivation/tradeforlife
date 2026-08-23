@@ -305,6 +305,7 @@
                 <th>年总支出</th>
                 <th>年净额</th>
                 <th>年末资本</th>
+                <th>年末资本 (PV)</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -541,9 +542,12 @@ function renderChart(years, capitalHistory, runOutMonth) {
 
 function renderTable(yearlyData) {
   const tbody = document.querySelector('#resultTable tbody');
+  const inflation = parseNum(document.getElementById('inflation').value) / 100;
   tbody.innerHTML = yearlyData.map(y => {
     const netClass = (y.netFlow ?? 0) >= 0 ? 'pos' : 'neg';
     const endCap = y.endCapital ?? 0;
+    // PV = 把第 n 年年末的名义资本，用通膨折现回今天的购买力
+    const pv = endCap / Math.pow(1 + inflation, y.year);
     return `<tr>
       <td>第 ${y.year} 年</td>
       <td>${fmtFull(y.monthlyExpense)}</td>
@@ -551,6 +555,7 @@ function renderTable(yearlyData) {
       <td class="neg">${fmtFull(y.totalExpense)}</td>
       <td class="${netClass}">${(y.netFlow ?? 0) >= 0 ? '+' : ''}${fmtFull(y.netFlow ?? 0)}</td>
       <td>${fmtFull(endCap)}</td>
+      <td style="color:#7c3aed">${fmtFull(pv)}</td>
     </tr>`;
   }).join('');
 }
