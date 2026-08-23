@@ -138,7 +138,20 @@
   }
   .result-headline.runout .value { color: #dc2626; }
   .result-headline.forever .value { color: #16a34a; }
+  .result-headline.required {
+    background: linear-gradient(135deg, #eff6ff, #e0e7ff);
+    border: 1px solid #c7d2fe;
+  }
+  .result-headline.required .value { color: #4f46e5; }
+  .result-headline.impossible {
+    background: linear-gradient(135deg, #fff7ed, #ffedd5);
+    border: 1px solid #fed7aa;
+  }
+  .result-headline.impossible .value { color: #ea580c; font-size: 24px; }
   .result-headline .sub { font-size: 14px; color: #475569; }
+  .gap-line { margin-top: 10px; font-size: 14px; font-weight: 600; }
+  .gap-line.short { color: #dc2626; }
+  .gap-line.surplus { color: #16a34a; }
   .stats-row {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -414,9 +427,51 @@ function runSimulation() {
   renderTable(yearlyData);
 }
 
+// 计算「永不耗尽」所需的起始资本
+// 推导：每年末资本 C_n = C0·A^n − S·E·(A^n−(1+g)^n)/(A−(1+g))
+//   A=(1+r)^12（年化毛回酬），S=((1+r)^12−1)/r（月提领的年化因子）
+// 当 C0 = S·E/(A−(1+g)) 时，A^n 项系数归零，资本正好跟着通膨同步增长 → 永续。
+// 低于此值终会归零，高于此值则无限增长。若 A ≤ 1+g（回酬追不上通膨），则无解。
+function requiredCapital(monthlyROI, expense0, inflation) {
+  if (monthlyROI <= 0) return Infinity;
+  const A = Math.pow(1 + monthlyROI, 12);
+  const S = (Math.pow(1 + monthlyROI, 12) - 1) / monthlyROI;
+  const denom = A - (1 + inflation);
+  if (denom <= 0) return Infinity;      // 通膨 ≥ 年化回酬 → 无解
+  return S * expense0 / denom;
+}
+
 function renderResult(capital0, runOutMonth, finalCapital, maxYears, yearlyData) {
   const container = document.getElementById('resultContainer');
   let html = '';
+
+  const monthlyROI = parseNum(document.getElementById('roi').value) / 100;
+  const expense0 = parseNum(document.getElementById('expense').value);
+  const inflation = parseNum(document.getElementById('inflation').value) / 100;
+  const reqCap = requiredCapital(monthlyROI, expense0, inflation);
+
+  if (!isFinite(reqCap)) {
+    const annualized = (Math.pow(1 + monthlyROI, 12) - 1) * 100;
+    html += `<div class="result-headline impossible">
+      <div class="label">永不耗尽所需起始资本</div>
+      <div class="value">无解 — 没有任何金额撑得住 ⚠️</div>
+      <div class="sub">你的年化回酬 ${annualized.toFixed(2)}% 追不上通膨 ${(inflation*100).toFixed(2)}%，
+      生活费长期会超越任何资本的增速。先提高回酬或降低通膨假设。</div>
+    </div>`;
+  } else {
+    const diff = capital0 - reqCap;
+    const gapClass = diff >= 0 ? 'surplus' : 'short';
+    const gapText = diff >= 0
+      ? `你现在的 ${fmtRM(capital0)} 已超出 ${fmtRM(Math.abs(diff))} ✅`
+      : `你现在的 ${fmtRM(capital0)} 还差 ${fmtRM(Math.abs(diff))} ❌`;
+    html += `<div class="result-headline required">
+      <div class="label">永不耗尽所需起始资本</div>
+      <div class="value">${fmtFull(reqCap)}</div>
+      <div class="sub">在月回酬 ${(monthlyROI*100).toFixed(2)}%、月生活费 ${fmtFull(expense0)}、通膨 ${(inflation*100).toFixed(2)}% 之下，
+      起始资本达到这个数，capital 会跟着通膨同步增长、永远撑得住。</div>
+      <div class="gap-line ${gapClass}">${gapText}</div>
+    </div>`;
+  }
 
   if (runOutMonth !== null) {
     const yrs = Math.floor(runOutMonth / 12);
